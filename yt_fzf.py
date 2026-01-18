@@ -141,4 +141,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    exit(main())
+    try:
+        exit(main())
+    except KeyboardInterrupt as e:
+        print()
+        print("Interrupted", file=sys.stderr)
+        exit(130)
