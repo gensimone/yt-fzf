@@ -1,5 +1,7 @@
 # yt-fzf (YouTube Fuzzy Finder)
 
+![Demo](.github/assets/usage-example.gif)
+
 # Installation
 yt-fzf dependes on [fzf](https://github.com/junegunn/fzf) and [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 On Arch Linux you can install them using pacman:
