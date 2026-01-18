@@ -2,7 +2,6 @@ import sys
 import shutil
 import subprocess as sp
 from innertube.clients import InnerTube
-from argparse import ArgumentParser
 from dataclasses import dataclass
 from enum import Enum
 
@@ -102,12 +101,6 @@ def format_playlists(playlists: list[Playlist]) -> str:
     return '\n'.join(components)
 
 
-def get_parser() -> ArgumentParser:
-    parser = ArgumentParser(description="Download YouTube Music content using fzf and yt-dlp.")
-    parser.add_argument("query", type=str, help="The query.")
-    return parser
-
-
 class MissingDependency(Exception):
     pass
 
@@ -120,12 +113,13 @@ def check_deps(deps: set[str]) -> None:
 
 def main() -> int:
     check_deps({"fzf", "yt-dlp"})
-    args = get_parser().parse_args()
 
     # Search and extract
     innertube_client = InnerTube("WEB_REMIX")
-    print("Searching...")
-    playlists = get_playlists_from_query(innertube_client, query=args.query)
+    query = input("Search: ")
+    if not query:
+        return 1
+    playlists = get_playlists_from_query(innertube_client, query=query)
     if not playlists:
         print("No results found.", file=sys.stderr)
         return 2
