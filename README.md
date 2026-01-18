@@ -2,7 +2,7 @@
 
 # Installation
 yt-fzf dependes on [fzf](https://github.com/junegunn/fzf) and [yt-dlp](https://github.com/yt-dlp/yt-dlp).
-On Arch Linux you can download them using pacman:
+On Arch Linux you can install them using pacman:
 ```sh
 sudo pacman -S yt-dlp fzf
 ```
