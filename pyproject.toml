@@ -8,8 +8,8 @@ authors = [
 license = {text = "BSD"}
 readme = "README.md"
 
-[tool.poetry]
-package-mode = false
+[project.scripts]
+yt-fzf = "yt_fzf:main"
 
 [tool.poetry.dependencies]
 python='^3.8'
