@@ -6,18 +6,18 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+class CollectionType(Enum):
+    ALBUM = "Album"
+    SINGLE = "Single"
+    EP = "EP"
+
+
 @dataclass
 class Playlist:
     title: str
     type: CollectionType
     year: int
     id: str
-
-
-class CollectionType(Enum):
-    ALBUM = "Album"
-    SINGLE = "Single"
-    EP = "EP"
 
 
 def extract_channel_id(data: dict) -> str:
