@@ -127,15 +127,14 @@ def main() -> int:
     # Show results using fzf
     map_title_id = {p.title: p.id for p in playlists}
     formatted_playlists = format_playlists(playlists)
-    choice = fzf(stdin=formatted_playlists).stdout.decode()
-    if not choice:
+    selected_entries = fzf(args=["-m"], stdin=formatted_playlists).stdout.decode()
+    if not selected_entries:
         print("Aborting..", file=sys.stderr)
         return 1
 
-    # Downloading
-    playlist_title = get_title_from_entry(choice)
-    playlist_id = map_title_id[playlist_title]
-    cp = yt_dlp(args=[playlist_id])
+    # # Downloading
+    ids = [map_title_id[get_title_from_entry(entry)] for entry in selected_entries.split("\n") if entry]
+    cp = yt_dlp(args=ids)
 
     return cp.returncode
 
