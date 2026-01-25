@@ -116,7 +116,21 @@ def check_deps(deps: set[str]) -> None:
             raise MissingDependency(d)
 
 
-def main(args: Namespace) -> int:
+def main() -> int:
+    try:
+        return _main()
+    except KeyboardInterrupt as e:
+        print()
+        print("Interrupted", file=sys.stderr)
+        return 130
+
+
+def _main() -> int:
+    parser = argparse.ArgumentParser(description="Search and download music from YouTube Music using fzf and yt-dlp.")
+    parser.add_argument("channel", help="name of the channel to search for")
+    parser.add_argument("-i", "--id", action="store_true", help="intepret the channel name as an ID")
+    args = parser.parse_args()
+
     check_deps({"fzf", "yt-dlp"})
 
     # Search and extract
@@ -133,7 +147,7 @@ def main(args: Namespace) -> int:
         )
     if not playlists:
         print("No results found.", file=sys.stderr)
-        return 2
+        return 1
 
     # Show results using fzf
     map_title_id = {p.title: p.id for p in playlists}
@@ -151,13 +165,4 @@ def main(args: Namespace) -> int:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Search and download music from YouTube Music using fzf and yt-dlp.")
-    parser.add_argument("channel", help="name of the channel to search for")
-    parser.add_argument("-i", "--id", action="store_true", help="intepret the channel name as an ID")
-    args = parser.parse_args()
-    try:
-        exit(main(args))
-    except KeyboardInterrupt as e:
-        print()
-        print("Interrupted", file=sys.stderr)
-        exit(130)
+    sys.exit(main())
