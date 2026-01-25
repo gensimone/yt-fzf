@@ -1,5 +1,6 @@
 import sys
 import shutil
+import argparse
 import subprocess as sp
 from innertube.clients import InnerTube
 from dataclasses import dataclass
@@ -64,13 +65,17 @@ def yt_dlp(stdin: str = "", args: list[str] = []) -> sp.CompletedProcess:
     return sp.run(["yt-dlp"] + args, input=stdin.encode())
 
 
-def get_playlists_from_query(innertube_client: InnerTube, query: str) -> list[Playlist]:
-    response = innertube_client.search(query)
+def get_playlists_from_channel_id(innertube_client: InnerTube, channel_id: str) -> list[Playlist]:
+    response = innertube_client.browse(f"MPAD{channel_id}")
+    return extract_playlists(response)
+
+
+def get_playlists_from_channel_name(innertube_client: InnerTube, channel_name: str) -> list[Playlist]:
+    response = innertube_client.search(channel_name)
     channel_id = extract_channel_id(response)
     if not channel_id:
         return []
-    response = innertube_client.browse(f"MPAD{channel_id}")
-    return extract_playlists(response)
+    return get_playlists_from_channel_id(innertube_client, channel_id)
 
 
 def get_title_from_entry(entry: str) -> str:
@@ -111,15 +116,21 @@ def check_deps(deps: set[str]) -> None:
             raise MissingDependency(d)
 
 
-def main() -> int:
+def main(args: Namespace) -> int:
     check_deps({"fzf", "yt-dlp"})
 
     # Search and extract
     innertube_client = InnerTube("WEB_REMIX")
-    query = input("Search: ")
-    if not query:
-        return 1
-    playlists = get_playlists_from_query(innertube_client, query=query)
+    if args.id:
+        playlists = get_playlists_from_channel_id(
+                innertube_client=innertube_client,
+                channel_id=args.channel
+        )
+    else:
+        playlists = get_playlists_from_channel_name(
+                innertube_client=innertube_client,
+                channel_name=args.channel
+        )
     if not playlists:
         print("No results found.", file=sys.stderr)
         return 2
@@ -140,8 +151,12 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Search and download music from YouTube Music using fzf and yt-dlp.")
+    parser.add_argument("channel", help="name of the channel to search for")
+    parser.add_argument("-i", "--id", action="store_true", help="intepret the channel name as an ID")
+    args = parser.parse_args()
     try:
-        exit(main())
+        exit(main(args))
     except KeyboardInterrupt as e:
         print()
         print("Interrupted", file=sys.stderr)
