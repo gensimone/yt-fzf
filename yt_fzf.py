@@ -178,6 +178,9 @@ def _main() -> int:
             videos.extend(extract_videos(innertube_client.next(playlist_id=id)))
         ids = get_chosen_ids_from_entries(videos)
 
+    if not ids:
+        return 0
+
     cp = yt_dlp(args=ids)
     return cp.returncode
 
