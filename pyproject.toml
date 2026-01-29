@@ -1,6 +1,6 @@
 [project]
 name = "yt-fzf"
-version = "0.1.5"
+version = "0.1.6"
 description = "Search and download music from YouTube using fzf and yt-dlp."
 authors = [
     {name = "Simone Gentili",email = "gensimone.git@gmail.com"}
