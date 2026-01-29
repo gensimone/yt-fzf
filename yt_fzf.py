@@ -172,6 +172,7 @@ def _main() -> int:
 
     ids = get_chosen_ids_from_entries(playlists)
     if args.entries:
+        print("Loading entries..")
         videos: list[Video] = []
         for id in ids:
             videos.extend(extract_videos(innertube_client.next(playlist_id=id)))
