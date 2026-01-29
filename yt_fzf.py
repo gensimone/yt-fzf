@@ -1,7 +1,7 @@
 import sys
 import shutil
-import argparse
 import subprocess as sp
+from argparse import ArgumentParser
 from innertube.clients import InnerTube
 from dataclasses import dataclass
 from enum import Enum
@@ -14,11 +14,31 @@ class CollectionType(Enum):
 
 
 @dataclass
-class Playlist:
+class Entry:
     title: str
+    id: str
+
+    def __str__(self) -> str:
+        return self.title
+
+
+@dataclass
+class Playlist(Entry):
     type: CollectionType
     year: int
-    id: str
+
+    def __str__(self) -> str:
+        out = f"{self.type.value}"
+        out += " " * (max(map(len, CollectionType.__members__)) - len(self.type.value))
+        out += " "
+        out += f"{self.year}"
+        out += " - "
+        out += self.title
+        return out
+
+
+def get_title_from_str_entry(str_entry: str, entry: Entry) -> str:
+    return " ".join(str_entry.split()[3:]) if isinstance(entry, Playlist) else str_entry
 
 
 def extract_channel_id(data: dict) -> str:
@@ -29,6 +49,22 @@ def extract_channel_id(data: dict) -> str:
             "navigationEndpoint"]["browseEndpoint"]["browseId"]
     except KeyError:
         return ""
+
+
+def extract_videos(data: dict) -> list[Entry]:
+    entries: list[Entry] = []
+    for item in data["contents"]["singleColumnMusicWatchNextResultsRenderer"][
+            "tabbedRenderer"]["watchNextTabbedResultsRenderer"][
+                    "tabs"][0]["tabRenderer"]["content"][
+                            "musicQueueRenderer"]["content"][
+                                    "playlistPanelRenderer"]["contents"]:
+        if "playlistPanelVideoRenderer" not in item:
+            break
+        item_data = item["playlistPanelVideoRenderer"]
+        title = item_data["title"]["runs"][0]["text"]
+        id = item_data["navigationEndpoint"]["watchEndpoint"]["videoId"]
+        entries.append(Entry(title=title, id=id))
+    return entries
 
 
 def extract_playlists(data: dict) -> list[Playlist]:
@@ -78,62 +114,47 @@ def get_playlists_from_channel_name(innertube_client: InnerTube, channel_name: s
     return get_playlists_from_channel_id(innertube_client, channel_id)
 
 
-def get_title_from_entry(entry: str) -> str:
-    """
-    Extract the playlist title from the formatted playlist selected by the user through fzf.
-    NOTE: How this works depends strictly on format_playlists.
-    """
-    return " ".join(entry.split()[3:])
-
-
-def format_playlists(playlists: list[Playlist]) -> str:
-    """
-    [ALBUM]  [year] - title..
-    [EP]     [year] - title..
-    ...
-    [SINGLE] [year] - title..
-    """
-    components: list[str] = []
-    max_ctype_length = max(map(len, CollectionType.__members__))
-    for p in playlists:
-        component = f"{p.type.value}"
-        component += " " * (max_ctype_length - len(p.type.value))
-        component += " "
-        component += f"{p.year}"
-        component += " - "
-        component += p.title
-        components.append(component)
-    return '\n'.join(components)
-
-
-class MissingDependency(Exception):
-    pass
+def get_chosen_ids_from_entries(entries: list[Entry]) -> list[str]:
+    map_ids: dict[str, str] = dict()
+    str_list: list[str] = []
+    for e in entries:
+        map_ids[e.title] = e.id
+        str_list.append(str(e))
+    selected_entries = fzf(args=["-m"], stdin="\n".join(str_list)).stdout.decode()
+    return [map_ids[get_title_from_str_entry(e, entries[0])] for e in selected_entries.split("\n") if e]
 
 
 def check_deps(deps: set[str]) -> None:
+    missing_dependencies: set[str] = set()
     for d in deps:
         if not shutil.which(d):
-            raise MissingDependency(d)
+            missing_dependencies.add(d)
+    if missing_dependencies:
+        print(f"Missing dependencies: {', '.join(missing_dependencies)}", file=sys.stderr)
+        sys.exit(1)
+
+
+def get_parser() -> ArgumentParser:
+    parser = ArgumentParser(description="Search and download music from YouTube Music using fzf and yt-dlp.")
+    parser.add_argument("channel", help="name of the channel to search for")
+    parser.add_argument("-i", "--id", action="store_true", help="intepret the channel name as an ID")
+    parser.add_argument("-e", "--entries", action="store_true", help="show available entries for each individual playlist")
+    return parser
 
 
 def main() -> int:
     try:
         return _main()
-    except KeyboardInterrupt as e:
+    except KeyboardInterrupt:
         print()
         print("Interrupted", file=sys.stderr)
         return 130
 
 
 def _main() -> int:
-    parser = argparse.ArgumentParser(description="Search and download music from YouTube Music using fzf and yt-dlp.")
-    parser.add_argument("channel", help="name of the channel to search for")
-    parser.add_argument("-i", "--id", action="store_true", help="intepret the channel name as an ID")
-    args = parser.parse_args()
-
     check_deps({"fzf", "yt-dlp"})
+    args = get_parser().parse_args()
 
-    # Search and extract
     innertube_client = InnerTube("WEB_REMIX")
     if args.id:
         playlists = get_playlists_from_channel_id(
@@ -149,18 +170,14 @@ def _main() -> int:
         print("No results found.", file=sys.stderr)
         return 1
 
-    # Show results using fzf
-    map_title_id = {p.title: p.id for p in playlists}
-    formatted_playlists = format_playlists(playlists)
-    selected_entries = fzf(args=["-m"], stdin=formatted_playlists).stdout.decode()
-    if not selected_entries:
-        print("Aborting..", file=sys.stderr)
-        return 1
+    ids = get_chosen_ids_from_entries(playlists)
+    if args.entries:
+        videos: list[Video] = []
+        for id in ids:
+            videos.extend(extract_videos(innertube_client.next(playlist_id=id)))
+        ids = get_chosen_ids_from_entries(videos)
 
-    # # Downloading
-    ids = [map_title_id[get_title_from_entry(entry)] for entry in selected_entries.split("\n") if entry]
     cp = yt_dlp(args=ids)
-
     return cp.returncode
 
 
